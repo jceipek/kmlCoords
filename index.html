@@ -8,10 +8,26 @@
     <title>Converter</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.3.0/milligram.min.css"
         integrity="sha256-Ro/wP8uUi8LR71kwIdilf78atpu8bTEwrK5ZotZo+Zc=" crossorigin="anonymous" />
+    <!-- Color Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/monolith.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
 </head>
 
 <body>
     <div class="container">
+        <h1>Style</h1>
+        <div class="row">
+            <div class="column">
+                <label for="color">Color</label>
+                <input type="number" id="color">
+            </div>
+            <div class="column">
+                <pre id="color-out"></pre>
+            </div>
+        </div>
+
+        <h1>Coordinates</h1>
+
         <div class="row">
             <div class="column">
                 <label for="bl_lat">Back Left Latitude (degrees)</label>
@@ -70,7 +86,7 @@
             </div>
         </div>
 
-        <h1>Output</h1>
+        <h2>Output</h2>
         <pre id="output"></pre>
     </div>
     <script>
@@ -157,6 +173,7 @@
 
         var idsToTargets = {};
 
+        var outputColor = document.querySelector('#color-out');
         var output = document.querySelector('#output');
         document.querySelectorAll('input').forEach(function (el) {
             idsToTargets[el.id] = el;
@@ -187,6 +204,48 @@
 
                 output.textContent = res;
             };
+        });
+
+        const pickr = Pickr.create({
+            el: '#color',
+            theme: 'monolith',
+
+            swatches: [],
+
+            components: {
+
+                // Main components
+                preview: false,
+                opacity: true,
+                hue: true,
+
+                // Input / output Options
+                interaction: {
+                    hex: false,
+                    rgba: false,
+                    hsla: false,
+                    hsva: false,
+                    cmyk: false,
+                    input: false,
+                    clear: false,
+                    save: false
+                }
+            }
+        });
+        pickr.on('change', function (e) {
+            var rgb = e.toHEXA();
+            var aa = 'ff';
+            if (rgb.length == 4) {
+                aa = rgb[3].toLowerCase();
+            }
+            var rr = rgb[0];
+            var gg = rgb[1];
+            var bb = rgb[2];
+            // aabbggrr
+            outputColor.textContent = aa + bb + gg + rr;
+
+            //pickr.setColor(e.toString());
+            pickr.applyColor(true);
         });
     </script>
 </body>
