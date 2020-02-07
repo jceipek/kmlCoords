@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Converter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.3.0/milligram.min.css"
+        integrity="sha256-Ro/wP8uUi8LR71kwIdilf78atpu8bTEwrK5ZotZo+Zc=" crossorigin="anonymous" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="column">
+                <label for="fl_long">Front Left Longitude (degrees)</label>
+                <input type="number" id="fl_long">
+            </div>
+            <div class="column">
+                <label for="fl_lat">Front Left Latitude (degrees)</label>
+                <input type="number" id="fl_lat">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="column">
+                <label for="fr_long">Front Right Longitude (degrees)</label>
+                <input type="number" id="fr_long">
+            </div>
+            <div class="column">
+                <label for="fr_lat">Front Right Latitude (degrees)</label>
+                <input type="number" id="fr_lat">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="column">
+                <label for="br_long">Back Right Longitude (degrees)</label>
+                <input type="number" id="br_long">
+            </div>
+            <div class="column">
+                <label for="br_lat">Back Right Latitude (degrees)</label>
+                <input type="number" id="br_lat">
+            </div>
+        </div>
+        <div class="row">
+            <div class="column">
+                <label for="bl_long">Back Left Longitude (degrees)</label>
+                <input type="number" id="bl_long">
+            </div>
+            <div class="column">
+                <label for="bl_lat">Back Left Latitude (degrees)</label>
+                <input type="number" id="bl_lat">
+            </div>
+        </div>
+
+        <label for="top_alt">Top Absolute Altitude (ft)</label>
+        <input type="number" id="top_alt">
+
+        <div class="row">
+            <div class="column">
+                <label for="bot_alt">Bottom Absolute Altitude (ft)</label>
+                <input type="number" id="bot_alt">
+            </div>
+            <div class="column">
+                <label for="extrude">Anchor to ground?</label>
+                <input type="checkbox" id="extrude">
+            </div>
+        </div>
+
+        <h1>Output</h1>
+        <pre id="output"></pre>
+    </div>
+    <script>
+        // Base and top altitude in feet, convert to meters above sea level
+
+        // Four corners in long, lat format
+
+        // A single tuple consisting of floating point values for longitude, latitude, and altitude (in that order).
+        // Longitude and latitude values are in degrees, where:
+        // longitude ≥ −180 and <= 180
+        // latitude ≥ −90 and ≤ 90
+        // altitude values (optional) are in meters above sea level
+
+        // We need a box
+        // altitude is in meters above sea level (people are used to feet, so use that as input)
+
+        // absolute for the air 
+
+        function makePolygonsForBox(p1_LongLatDeg, p2_LongLatDeg, p3_LongLatDeg, p4_LongLatDeg, bottomAlt_meters, topAlt_meters) {
+            var tfl /* top front left */ = { long: p1_LongLatDeg.long, lat: p1_LongLatDeg.lat, alt: topAlt_meters };
+            var tfr /* top front right */ = { long: p2_LongLatDeg.long, lat: p2_LongLatDeg.lat, alt: topAlt_meters };
+            var tbr /* top back right */ = { long: p3_LongLatDeg.long, lat: p3_LongLatDeg.lat, alt: topAlt_meters };
+            var tbl /* top back left */ = { long: p4_LongLatDeg.long, lat: p4_LongLatDeg.lat, alt: topAlt_meters };
+
+            var bfl /* bottom front left */ = { long: p1_LongLatDeg.long, lat: p1_LongLatDeg.lat, alt: bottomAlt_meters };
+            var bfr /* bottom front right */ = { long: p2_LongLatDeg.long, lat: p2_LongLatDeg.lat, alt: bottomAlt_meters };
+            var bbr /* bottom back right */ = { long: p3_LongLatDeg.long, lat: p3_LongLatDeg.lat, alt: bottomAlt_meters };
+            var bbl /* bottom back left */ = { long: p4_LongLatDeg.long, lat: p4_LongLatDeg.lat, alt: bottomAlt_meters };
+
+            // All coordinates must be counter-clockwise relative to the surface normal,
+            // and the first and last point must double-up to ensure a closed surface.
+            var top = [tfl, tfr, tbr, tbl, tfl];
+            var bottom = [bbl, bbr, bfr, bfl, bbl];
+            var leftSide = [bbl, bfl, tfl, tbl, bbl];
+            var frontSide = [bfl, bfr, tfr, tfl, bfl];
+            var rightSide = [bfr, bbr, tbr, tfr, bfr];
+            var backSide = [bbr, bbl, tbl, tbr, bbr];
+
+            return [top, bottom, leftSide, frontSide, rightSide, backSide];
+        }
+
+        function genCoord(pt) {
+            return pt.long.toString() + "," + pt.lat.toString() + "," + pt.alt.toString();
+        }
+
+        function genCoordinates(ptList) {
+            var str = "<coordinates>";
+            str += ptList.map(genCoord).join(' ');
+            str += "</coordinates>\n";
+            return str;
+        }
+
+        function genLinearRing(ptList) {
+            var str = "<LinearRing>\n";
+            str += genCoordinates(ptList);
+            str += "</LinearRing>\n";
+            return str;
+        }
+
+        function genOuterBoundary(ptList) {
+            var str = "<outerBoundaryIs>\n";
+            str += genLinearRing(ptList);
+            str += "</outerBoundaryIs>\n";
+            return str;
+        }
+
+        function genPolygon(ptList, doExtrude) {
+            var str = "<Polygon>\n";
+            str += "<altitudeMode>absolute</altitudeMode>\n";
+            if (doExtrude) {
+                str += "<extrude>1</extrude>\n";
+            }
+            str += genOuterBoundary(ptList);
+            str += "</Polygon>";
+            return str;
+        }
+
+        function genMultiGeometryForPolygons(polygonList) {
+            var str = "<MultiGeometry>\n";
+            str += polygonList.map(function (ptList) { return genPolygon(ptList, false); }).join("\n");
+            str += "</MultiGeometry>\n";
+            return str;
+        }
+
+        var idsToTargets = {};
+
+        var output = document.querySelector('#output');
+        document.querySelectorAll('input').forEach(function (el) {
+            idsToTargets[el.id] = el;
+            el.oninput = function (e) {
+                // When stuff changes...
+
+                var doExtrude = idsToTargets['extrude'].checked;
+                var topAlt_meters = 0.3048 * parseFloat(idsToTargets['top_alt'].value);
+                var bottomAlt_meters = 0.3048 * parseFloat(idsToTargets['bot_alt'].value);
+
+                var p1_LongLatDeg = { long: parseFloat(idsToTargets['fl_long'].value), lat: parseFloat(idsToTargets['fl_lat'].value) };
+                var p2_LongLatDeg = { long: parseFloat(idsToTargets['fr_long'].value), lat: parseFloat(idsToTargets['fr_lat'].value) };
+                var p3_LongLatDeg = { long: parseFloat(idsToTargets['br_long'].value), lat: parseFloat(idsToTargets['br_lat'].value) };
+                var p4_LongLatDeg = { long: parseFloat(idsToTargets['bl_long'].value), lat: parseFloat(idsToTargets['bl_lat'].value) };
+
+
+                var res;
+                if (doExtrude) {
+                    var tfl /* top front left */ = { long: p1_LongLatDeg.long, lat: p1_LongLatDeg.lat, alt: topAlt_meters };
+                    var tfr /* top front right */ = { long: p2_LongLatDeg.long, lat: p2_LongLatDeg.lat, alt: topAlt_meters };
+                    var tbr /* top back right */ = { long: p3_LongLatDeg.long, lat: p3_LongLatDeg.lat, alt: topAlt_meters };
+                    var tbl /* top back left */ = { long: p4_LongLatDeg.long, lat: p4_LongLatDeg.lat, alt: topAlt_meters };
+                    res = genPolygon([tfl, tfr, tbr, tbl, tfl], true);
+                } else {
+                    res = genMultiGeometryForPolygons(makePolygonsForBox(p1_LongLatDeg, p2_LongLatDeg, p3_LongLatDeg, p4_LongLatDeg, bottomAlt_meters, topAlt_meters));
+                }
+
+
+                output.textContent = res;
+            };
+        });
+    </script>
+</body>
+
+</html>
